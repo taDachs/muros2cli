@@ -21,6 +21,7 @@
   exit(1)
 
 #define PKG_BUFFER_SIZE 10000
+#define STRING_BUFFER_SIZE 4096 // maximal path length under unix
 
 #define AMENT_PREFIX_PATH "AMENT_PREFIX_PATH"
 #define INSTALL_DIR "/install/"
@@ -37,43 +38,18 @@
 
 typedef struct
 {
-  char* path;
-  char* name;
+  char path[STRING_BUFFER_SIZE];
+  char name[STRING_BUFFER_SIZE];
 } package;
 
-static package* pkgs[1000] = {0};
-static size_t num_pkgs     = 0;
-
-package* createPackage(const char* path, const char* name)
-{
-  package* pkg = (package*)malloc(sizeof(package));
-  pkg->path    = (char*)malloc(strlen(path) + 1);
-  strcpy(pkg->path, path);
-  pkg->name = (char*)malloc(strlen(name) + 1);
-  strcpy(pkg->name, name);
-
-  return pkg;
-}
-
-void freePackage(package* pkg)
-{
-  free(pkg->path);
-  free(pkg->name);
-
-  free(pkg);
-}
-
-void prettyPrintPkg(const package* pkg)
-{
-  printf("--- %s ---\n", pkg->name);
-  printf("\t- path: %s\n", pkg->path);
-}
+static package pkgs[PKG_BUFFER_SIZE];
+static size_t num_pkgs = 0;
 
 int foundPackage(const char* name)
 {
   for (int i = 0; i < num_pkgs; ++i)
   {
-    if (strcmp(pkgs[i]->name, name) == 0)
+    if (strcmp(pkgs[i].name, name) == 0)
     {
       return 1;
     }
@@ -148,8 +124,6 @@ int readPackageNameFromFile(const char* path, char* dst)
 
 char* getWorkspaceRoot(workspaceIt* it)
 {
-  // char* ament_prefix_path = getenv("AMENT_PREFIX_PATH");
-
   if (it == NULL || it->ament_prefix_path == NULL)
   {
     return NULL;
@@ -229,10 +203,6 @@ int crawl(char* root)
 
     if (strcmp(dir->d_name, PACKAGE_XML) == 0)
     {
-      char root_cpy[strlen(root) + 1];
-      strcpy(root_cpy, root);
-      // TODO: this is wrong, name of directory has nothing to do with package name
-      // char* pkg_name = basename(root_cpy);
       char package_xml_path[strlen(root) + strlen(PATH_SEP) + strlen(PACKAGE_XML)];
       strcpy(package_xml_path, root);
       strcat(package_xml_path, PATH_SEP);
@@ -247,7 +217,10 @@ int crawl(char* root)
       }
 
       _DEBUG("Found package at %s\n", root);
-      pkgs[num_pkgs++] = createPackage(root, pkg_name);
+
+      strcpy(pkgs[num_pkgs].path, root);
+      strcpy(pkgs[num_pkgs].name, pkg_name);
+      num_pkgs++;
       continue;
     }
 
@@ -320,20 +293,15 @@ int handleFind(int argc, char** argv)
   int found = 0;
   for (int i = 0; i < num_pkgs; ++i)
   {
-    if (strcmp(pkgs[i]->name, argv[2]) == 0)
+    if (strcmp(pkgs[i].name, argv[2]) == 0)
     {
-      printf("%s\n", pkgs[i]->path);
+      printf("%s\n", pkgs[i].path);
       found = 1;
       break;
     }
   }
 
   closeIt(ws_it);
-
-  for (int i = 0; i < num_pkgs; ++i)
-  {
-    freePackage(pkgs[i]);
-  }
 
   if (!found)
   {
@@ -360,14 +328,10 @@ int handleList(int argc, char** argv)
 
   for (int i = 0; i < num_pkgs; ++i)
   {
-    printf("%s %s\n", pkgs[i]->name, pkgs[i]->path);
+    printf("%s %s\n", pkgs[i].name, pkgs[i].path);
   }
   closeIt(ws_it);
 
-  for (int i = 0; i < num_pkgs; ++i)
-  {
-    freePackage(pkgs[i]);
-  }
   return 0;
 }
 
