@@ -5,11 +5,11 @@ one executable that tries to imitate some functionality of `rospack`.
 
 ## Install
 
-Simply run the Makefile and link the executable somewhere in your path:
+Simply run the Makefile:
 
 ```sh
 make
-ln -s $PWD/muros2 ~/.local/bin  # for example
+make install
 ```
 
 ## Usage
